@@ -234,10 +234,10 @@ Usage: cmai [options] [api_key]
 Options:
   --debug               Enable debug mode
   --push, -p            Push changes after commit
-    --message-only        Generate message only, no git add/commit/push
-    --branch-name-only    Generate branch name only, no git add/commit/push
-    --unstaged            Use unstaged changes for diff
-    --model <model>       Use specific model (default: google/gemini-flash-1.5-8b)
+  --message-only        Generate message only, no git add/commit/push
+  --branch-name-only    Generate branch name only, no git add/commit/push
+  --unstaged            Use unstaged changes for diff
+  --model <model>       Use specific model (default: google/gemini-flash-1.5-8b)
   --use-ollama          Use Ollama as provider (saves for future use)
   --use-lmstudio        Use LMStudio as provider (saves for future use)
   --use-openrouter      Use OpenRouter as provider (saves for future use)

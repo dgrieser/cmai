@@ -531,8 +531,8 @@ case "$PROVIDER" in
         echo "Error from Ollama: $ERROR"
         exit 1
     fi
-    COMMIT_FULL=$(echo "$RESPONSE" | jq -r '.response // empty')
-    if [ -z "$COMMIT_FULL" ]; then
+    RESULT_MESSAGE=$(echo "$RESPONSE" | jq -r '.response // empty')
+    if [ -z "$RESULT_MESSAGE" ]; then
         echo "Error: Failed to get response from Ollama. Response: $RESPONSE"
         exit 1
     fi
@@ -556,8 +556,8 @@ case "$PROVIDER" in
     fi
 
     # Try to extract content with proper error handling
-    COMMIT_FULL=$(echo "$RESPONSE" | jq -r '.choices[0].message.content' 2>/dev/null)
-    if [ $? -ne 0 ] || [ -z "$COMMIT_FULL" ] || [ "$COMMIT_FULL" = "null" ]; then
+    RESULT_MESSAGE=$(echo "$RESPONSE" | jq -r '.choices[0].message.content' 2>/dev/null)
+    if [ $? -ne 0 ] || [ -z "$RESULT_MESSAGE" ] || [ "$RESULT_MESSAGE" = "null" ]; then
         echo "Error: Failed to parse LMStudio response. Response format may be unexpected."
         echo "Response: $RESPONSE"
         exit 1
@@ -565,11 +565,11 @@ case "$PROVIDER" in
     ;;
 "$PROVIDER_OPENROUTER" | "$PROVIDER_CUSTOM")
     # For OpenRouter and custom providers
-    COMMIT_FULL=$(echo "$RESPONSE" | jq -r '.choices[0].message.content')
+    RESULT_MESSAGE=$(echo "$RESPONSE" | jq -r '.choices[0].message.content')
 
     # If jq fails or returns null, fallback to grep method
-    if [ -z "$COMMIT_FULL" ] || [ "$COMMIT_FULL" = "null" ]; then
-        COMMIT_FULL=$(echo "$RESPONSE" | grep -o '"content":"[^"]*"' | cut -d'"' -f4)
+    if [ -z "$RESULT_MESSAGE" ] || [ "$RESULT_MESSAGE" = "null" ]; then
+        RESULT_MESSAGE=$(echo "$RESPONSE" | grep -o '"content":"[^"]*"' | cut -d'"' -f4)
     fi
     ;;
 esac
@@ -577,22 +577,22 @@ esac
 # Clean the message:
 # 1. Preserve the structure of the commit message
 # 2. Clean up escape sequences
-COMMIT_FULL=$(echo "$COMMIT_FULL" |
+RESULT_MESSAGE=$(echo "$RESULT_MESSAGE" |
     sed 's/\\n/\n/g' |
     sed 's/\\r//g' |
     sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' |
     sed 's/\\[[:alpha:]]//g')
 
-debug_log "Extracted commit message" "$COMMIT_FULL"
+debug_log "Extracted commit message" "$RESULT_MESSAGE"
 
-if [ -z "$COMMIT_FULL" ]; then
+if [ -z "$RESULT_MESSAGE" ]; then
     echo "Failed to generate commit message. API response:"
     echo "$RESPONSE"
     exit 1
 fi
 
 if [ "$MESSAGE_ONLY" = true ] || [ "$BRANCH_NAME_ONLY" = true ]; then
-    echo "$COMMIT_FULL"
+    echo "$RESULT_MESSAGE"
     exit 0
 fi
 
@@ -604,7 +604,7 @@ fi
 
 # Execute git commit
 debug_log "Executing git commit"
-git commit -m "$COMMIT_FULL"
+git commit -m "$RESULT_MESSAGE"
 
 if [ $? -ne 0 ]; then
     echo "Failed to commit changes"
@@ -624,5 +624,5 @@ if [ "$PUSH" = true ]; then
 fi
 
 echo "Successfully committed and pushed changes with message:"
-echo "$COMMIT_FULL"
+echo "$RESULT_MESSAGE"
 debug_log "Script completed successfully"
