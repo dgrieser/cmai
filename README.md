@@ -220,7 +220,7 @@ If you haven't staged your changes yet (with `git add`), you can use the `--unst
 cmai --unstaged --message-only
 ```
 
-This will generate a message based on your current changes in the working tree without staging them.
+This will generate a message based on your current unstaged and untracked working tree changes without staging them first.
 
 ### Generate Branch Name Only
 
@@ -248,7 +248,7 @@ Options:
   --push, -p            Push changes after commit
   --message-only        Generate message only, no git add/commit/push
   --branch-name-only    Generate branch name only, no git add/commit/push
-  --unstaged            Use unstaged changes for diff
+  --unstaged            Use unstaged and untracked changes for diff
   --diff <diff>         Use a custom git diff target for message/branch-only
   --model <model>       Use specific model (default: google/gemini-flash-1.5-8b)
   --use-ollama          Use Ollama as provider (saves for future use)

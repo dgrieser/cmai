@@ -45,6 +45,21 @@ debug_log() {
     fi
 }
 
+# Collect untracked files and represent them as added files in the prompt context.
+get_untracked_changes() {
+    local files=""
+    local diffs=""
+    local file=""
+
+    while IFS= read -r -d '' file; do
+        files+="A $file"$'\n'
+        diffs+=$(git diff --no-index -- /dev/null "$file" 2>/dev/null || true)
+        diffs+=$'\n'
+    done < <(git ls-files --others --exclude-standard -z)
+
+    printf '%s\n__CMAI_SPLIT__\n%s' "$files" "$diffs"
+}
+
 # Function to save API key
 save_api_key() {
     mkdir -p "$CONFIG_DIR"
@@ -249,7 +264,7 @@ while [[ $# -gt 0 ]]; do
         echo "  --push, -p            Push changes after commit"
         echo "  --message-only        Generate message only, no git add/commit/push"
         echo "  --branch-name-only    Generate branch name only, no git add/commit/push"
-        echo "  --unstaged            Use unstaged changes for diff"
+        echo "  --unstaged            Use unstaged and untracked changes for diff"
         echo "  --diff <diff>         Use a custom git diff target for message/branch-only"
         echo "  --model <model>       Use specific model (default: google/gemini-flash-1.5-8b)"
         echo "  --use-ollama          Use Ollama as provider (saves for future use)"
@@ -366,13 +381,28 @@ fi
 CHANGES=$(git diff --name-status "${DIFF_ARGS[@]}" | tr '\t' ' ' | sed 's/  */ /g')
 # Get git diff for context
 DIFF_CONTENT=$(git diff "${DIFF_ARGS[@]}")
+
+if [ "$UNSTAGED" = true ]; then
+    UNTRACKED_DATA=$(get_untracked_changes)
+    UNTRACKED_CHANGES=${UNTRACKED_DATA%%$'\n'__CMAI_SPLIT__*}
+    UNTRACKED_DIFF=${UNTRACKED_DATA#*__CMAI_SPLIT__$'\n'}
+
+    if [ -n "$UNTRACKED_CHANGES" ]; then
+        CHANGES="${CHANGES}${CHANGES:+$'\n'}${UNTRACKED_CHANGES%$'\n'}"
+    fi
+
+    if [ -n "$UNTRACKED_DIFF" ]; then
+        DIFF_CONTENT="${DIFF_CONTENT}${DIFF_CONTENT:+$'\n'}${UNTRACKED_DIFF%$'\n'}"
+    fi
+fi
+
 debug_log "Git changes detected" "$CHANGES"
 
 if [ -z "$CHANGES" ]; then
     if [ -n "$DIFF_SPEC" ]; then
         echo "No changes found for git diff $DIFF_SPEC."
     elif [ "$UNSTAGED" = true ]; then
-        echo "No unstaged changes found."
+        echo "No unstaged or untracked changes found."
     else
         echo "No staged changes found. Please stage your changes using 'git add' first or use --unstaged flag."
     fi
