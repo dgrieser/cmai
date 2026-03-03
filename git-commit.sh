@@ -16,6 +16,8 @@ MESSAGE_ONLY=false
 BRANCH_NAME_ONLY=false
 # Unstaged flag
 UNSTAGED=false
+# Explicit git diff target
+DIFF_SPEC=""
 # Default providers and URLs
 PROVIDER_OPENROUTER="openrouter"
 PROVIDER_OLLAMA="ollama"
@@ -226,6 +228,15 @@ while [[ $# -gt 0 ]]; do
         UNSTAGED=true
         shift
         ;;
+    --diff)
+        if [[ -n "$2" && "$2" != -* ]]; then
+            DIFF_SPEC="$2"
+            shift 2
+        else
+            echo "Error: --diff requires a diff argument"
+            exit 1
+        fi
+        ;;
     --print-config)
         print_config
         exit 0
@@ -239,6 +250,7 @@ while [[ $# -gt 0 ]]; do
         echo "  --message-only        Generate message only, no git add/commit/push"
         echo "  --branch-name-only    Generate branch name only, no git add/commit/push"
         echo "  --unstaged            Use unstaged changes for diff"
+        echo "  --diff <diff>         Use a custom git diff target for message/branch-only"
         echo "  --model <model>       Use specific model (default: google/gemini-flash-1.5-8b)"
         echo "  --use-ollama          Use Ollama as provider (saves for future use)"
         echo "  --use-openrouter      Use OpenRouter as provider (saves for future use)"
@@ -309,6 +321,16 @@ if [ -z "$API_KEY" ] && [ "$PROVIDER" = "$PROVIDER_OPENROUTER" ]; then
     exit 1
 fi
 
+if [ -n "$DIFF_SPEC" ] && [ "$UNSTAGED" = true ]; then
+    echo "Error: --diff and --unstaged cannot be used together"
+    exit 1
+fi
+
+if [ -n "$DIFF_SPEC" ] && [ "$MESSAGE_ONLY" = false ] && [ "$BRANCH_NAME_ONLY" = false ]; then
+    echo "Error: --diff can only be used with --message-only or --branch-name-only"
+    exit 1
+fi
+
 # Set default model based on provider
 if [ "$PROVIDER" = "$PROVIDER_OLLAMA" ]; then
     [ -z "$MODEL" ] && MODEL="$OLLAMA_MODEL"
@@ -334,16 +356,22 @@ if [ "$MESSAGE_ONLY" = false ] && [ "$BRANCH_NAME_ONLY" = false ] && [ "$UNSTAGE
 fi
 
 # Use a single, readable format for all providers (jq will handle JSON escaping)
-DIFF_RANGE="--cached"
-[ "$UNSTAGED" = true ] && DIFF_RANGE=""
+DIFF_ARGS=()
+if [ -n "$DIFF_SPEC" ]; then
+    DIFF_ARGS+=("$DIFF_SPEC")
+elif [ "$UNSTAGED" = false ]; then
+    DIFF_ARGS+=(--cached)
+fi
 
-CHANGES=$(git diff $DIFF_RANGE --name-status | tr '\t' ' ' | sed 's/  */ /g')
+CHANGES=$(git diff --name-status "${DIFF_ARGS[@]}" | tr '\t' ' ' | sed 's/  */ /g')
 # Get git diff for context
-DIFF_CONTENT=$(git diff $DIFF_RANGE)
+DIFF_CONTENT=$(git diff "${DIFF_ARGS[@]}")
 debug_log "Git changes detected" "$CHANGES"
 
 if [ -z "$CHANGES" ]; then
-    if [ "$UNSTAGED" = true ]; then
+    if [ -n "$DIFF_SPEC" ]; then
+        echo "No changes found for git diff $DIFF_SPEC."
+    elif [ "$UNSTAGED" = true ]; then
         echo "No unstaged changes found."
     else
         echo "No staged changes found. Please stage your changes using 'git add' first or use --unstaged flag."
