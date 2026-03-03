@@ -358,7 +358,7 @@ fi
 # Use a single, readable format for all providers (jq will handle JSON escaping)
 DIFF_ARGS=()
 if [ -n "$DIFF_SPEC" ]; then
-    DIFF_ARGS+=("$DIFF_SPEC")
+    read -ra DIFF_ARGS <<< "$DIFF_SPEC"
 elif [ "$UNSTAGED" = false ]; then
     DIFF_ARGS+=(--cached)
 fi
